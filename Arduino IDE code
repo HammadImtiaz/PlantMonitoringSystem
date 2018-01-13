@@ -1,0 +1,132 @@
+//Libraries start here
+#include <dht.h>
+#include <MQ135.h>
+#include <ESP8266WiFi.h>
+#include <CayenneMQTTESP8266.h>
+//cayenne is a data logging app available on android phones, it is a bit like thingspeak
+#define CAYENNE_DEBUG
+#define CAYENNE_PRINT Serial
+#define DHT11_PIN D3
+#include "MQ135.h"
+#define PIN_MQ135 A0
+char ssid[] = "Write your wifi network name here";
+char wifiPassword[] = "password";
+char username[] = "get your cayenne id from your cayenne account";
+char password[] = "cayenne password";
+char clientID[] = "also from cayenne";
+int GasSensorDigital = D4;
+int PIRSensor = D2;
+float PIRoutput;
+int AnalogInput = A0;
+float GasLevel;
+float Temperature;
+float Humidity;
+int GasSensorTrigger = D0;
+int WaterLevelSensorTrigger = D1;
+int GasAlarm = D5;
+int WaterLevelAlarm = D6;
+float WaterLevel;
+int PIRalarm = D7;
+int HumidityAlarm = D8;
+MQ135 mq135_sensor = MQ135(PIN_MQ135);
+dht DHT;
+void setup() {
+  Serial.begin(115200);
+  Cayenne.begin(username, password, clientID, ssid, wifiPassword);
+  delay(2000);
+  Serial.begin(115200);
+  pinMode(GasSensorDigital, INPUT);
+  pinMode(GasSensorTrigger, OUTPUT);
+  pinMode(WaterLevelSensorTrigger, INPUT);
+  pinMode(PIRSensor, INPUT);
+  pinMode(AnalogInput, INPUT);
+  //Since the nodemcu only has one analog input and we need 2, we will activate the analog data sensors (Gas Sensor and Water sensor) one at a time
+  //and the data is sent from one analog sensor at a time to A0 which is AnalogInput
+}
+void loop() {
+  delay(50);
+  Cayenne.loop();
+  int chk = DHT.read11(DHT11_PIN);
+  Temperature = DHT.temperature;
+  Cayenne.virtualWrite(2, Temperature, "temp", "c");
+  delay(50);
+  Humidity = DHT.humidity;
+  Cayenne.virtualWrite(3, Humidity, "rel_hum", "%");
+  delay(50);
+  digitalWrite(GasSensorTrigger, HIGH);//Activate GasSensor first
+  delay(50);
+  float rzero = mq135_sensor.getRZero();
+  float correctedRZero = mq135_sensor.getCorrectedRZero(Temperature, Humidity);
+  float resistance = mq135_sensor.getResistance();
+  float ppm = mq135_sensor.getPPM();
+  float correctedPPM = mq135_sensor.getCorrectedPPM(Temperature, Humidity);
+  GasLevel = correctedPPM;
+  Cayenne.virtualWrite(1, GasLevel, "co", "ppm");
+  delay(50);
+  digitalWrite(GasSensorTrigger, LOW);//Turn GasSensor off so that we can take next sensor
+  if (GasLevel > 500)
+  {
+    digitalWrite(GasAlarm, HIGH);//Deadly Gas
+  }
+  else
+  {
+    digitalWrite(GasAlarm, LOW);//Safe Gas
+  }
+  PIRoutput = digitalRead(PIRSensor);
+  Cayenne.virtualWrite(4, PIRoutput);
+  delay(50);
+  if (PIRoutput > 15)
+  {
+    digitalWrite(PIRalarm, HIGH);//Motion Detected near plant
+  }
+  else
+  {
+    digitalWrite(PIRalarm, LOW);//No motion
+  }
+  digitalWrite(WaterLevelSensorTrigger, HIGH);//Activate WaterLevelSensor for reading
+  delay(50);
+  WaterLevel = analogRead(AnalogInput);
+  if (WaterLevel<=480){ 
+    WaterLevel = 0; 
+    digitalWrite(WaterLevelAlarm, LOW);
+  }
+  else if (WaterLevel>480 && WaterLevel<=530){ 
+    WaterLevel = 2.5; //We converted the raw reading to millimeters
+    digitalWrite(WaterLevelAlarm, LOW);
+  }
+  else if (WaterLevel>530 && WaterLevel<=615){ 
+    WaterLevel = 7.5; 
+    digitalWrite(WaterLevelAlarm, LOW);
+  }
+  else if (WaterLevel>615 && WaterLevel<=660){ 
+    WaterLevel = 12.5;
+    digitalWrite(WaterLevelAlarm, LOW);
+  } 
+  else if (WaterLevel>660 && WaterLevel<=680){ 
+    WaterLevel = 17.5;
+    digitalWrite(WaterLevelAlarm, LOW);
+  }
+  else if (WaterLevel>680 && WaterLevel<=690){ 
+    WaterLevel = 22.5; 
+    digitalWrite(WaterLevelAlarm, LOW);
+  }
+  else if (WaterLevel>690 && WaterLevel<=700){ 
+    WaterLevel = 27.5;
+    digitalWrite(WaterLevelAlarm, LOW);
+  }
+  else if (WaterLevel>700 && WaterLevel<=705){ 
+    WaterLevel = 32.5; 
+    digitalWrite(WaterLevelAlarm, HIGH);
+  }
+  else if (WaterLevel>705){ 
+    WaterLevel = 37.5; 
+    digitalWrite(WaterLevelAlarm, HIGH);
+  }
+  else
+  {
+    digitalWrite(WaterLevelAlarm, LOW);
+  }
+  Cayenne.virtualWrite(5, WaterLevel, "rain_level", "mm");
+  delay(50);
+  digitalWrite(WaterLevelSensorTrigger, LOW);//Turn off sensor
+}
