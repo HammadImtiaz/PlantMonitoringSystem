@@ -1,0 +1,21 @@
+Here is the list of parts needed:
+1. 5V Power supply
+2. 3V Power supply, for both of these I used the YwRobot545043 power source device
+3. Arduino DHT11 temperature and humidity sensor
+4. MQ135 Gas quality sensor
+5. PIR motion sensor
+6. Liquid surface height water level sensor
+7. NodeMCU ESP8266 micro-controller
+8. Jumper cables and wires, male-to-male, male-to-female, female-to-female
+9. Breadboards
+10. 100k ohms variable resistor
+11. 1M ohms variable resistor
+12. 2 of 2N7000 transistor
+13. 2 of 10k ohms resistors
+14. 4 LEDs
+Note: The NodeMCU only has 1 analog input pin and we need 2, so we can multiplex the sensors, by triggering one sensor at a time,
+using the digital output pins to provide power to the sensor when needed. When one sensor reading is obtained, turn the related
+digital output pin of the nodemcu off, and trigger the pin connected to the next analog sensor needed. For now this is done for 
+the gas and water level sensors only as they are the only ones giving analog outputs.
+The NodeMCU cannot give 5V in its digital output pins so use the transistor and 10k resistors to build 2 small sub-circuits to
+rais the voltage level of the digital outputs from 3.3V to 5V so that the 5V analog sensors can be triggered.
